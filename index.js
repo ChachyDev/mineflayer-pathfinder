@@ -61,35 +61,14 @@ function inject (bot) {
   }
 
   bot.pathfinder.getPathTo = (movements, goal, timeout) => {
-    const generator = bot.pathfinder.getPathFromTo(movements, bot.entity.position, goal, { timeout })
-    const { value: { result, astarContext: context } } = generator.next()
-    astarContext = context
+    const p = bot.entity.position
+    const dy = p.y - Math.floor(p.y)
+    const b = bot.blockAt(p)
+    const start = new Move(p.x, p.y + (b && dy > 0.001 && bot.entity.onGround && b.type !== 0 ? 1 : 0), p.z, movements.countScaffoldingItems(), 0)
+    astarContext = new AStar(start, movements, goal, timeout || bot.pathfinder.thinkTimeout, bot.pathfinder.tickTimeout, bot.pathfinder.searchRadius)
+    const result = astarContext.compute()
+    result.path = postProcessPath(result.path)
     return result
-  }
-
-  bot.pathfinder.getPathFromTo = function * (movements, startPos, goal, options = {}) {
-    const optimizePath = options.optimizePath ?? true
-    const timeout = options.timeout ?? bot.pathfinder.thinkTimeout
-    const tickTimeout = options.tickTimeout ?? bot.pathfinder.tickTimeout
-    const searchRadius = options.searchRadius ?? bot.pathfinder.searchRadius
-    let start
-    if (options.startMove) {
-      start = options.startMove
-    } else {
-      const p = startPos.floored()
-      const dy = p.y - Math.floor(p.y)
-      const b = bot.blockAt(p)
-      start = new Move(p.x, p.y + (b && dy > 0.001 && bot.entity.onGround && b.type !== 0 ? 1 : 0), p.z, movements.countScaffoldingItems(), 0)
-    }
-    const astarContext = new AStar(start, movements, goal, timeout, tickTimeout, searchRadius)
-    let result = astarContext.compute()
-    if (optimizePath) result.path = postProcessPath(result.path)
-    yield { result, astarContext }
-    while (result.status === 'partial') {
-      result = astarContext.compute()
-      if (optimizePath) result.path = postProcessPath(result.path)
-      yield { result, astarContext }
-    }
   }
 
   Object.defineProperties(bot.pathfinder, {
@@ -178,7 +157,7 @@ function inject (bot) {
       }
     }
 
-    if (!bot.pathfinder.enablePathShortcut || stateMovements.exclusionAreasStep.length !== 0 || path.length === 0) return path
+    if (!bot.pathfinder.enablePathShortcut || stateMovements.exclusionAreasStep.length === 0 || path.length === 0) return path
 
     const newPath = []
     let lastNode = bot.entity.position
@@ -257,10 +236,6 @@ function inject (bot) {
     return block.position.plus(p)
   }
 
-  /**
-   * Stop the bot's movement and recenter to the center off the block when the bot's hitbox is partially beyond the
-   * current blocks dimensions.
-   */
   function fullStop () {
     bot.clearControlStates()
 
@@ -313,7 +288,9 @@ function inject (bot) {
     const minDistanceSq = 0.2 * 0.2
     const targetPos = pos.clone().offset(0.5, 0, 0.5)
     if (bot.entity.position.distanceSquared(targetPos) > minDistanceSq) {
-      bot.lookAt(targetPos)
+      if (stateMovements.canLook) {
+        bot.lookAt(targetPos)
+      }
       bot.setControlState('forward', true)
       return false
     }
@@ -330,7 +307,6 @@ function inject (bot) {
   }
 
   bot.on('blockUpdate', (oldBlock, newBlock) => {
-    if (!oldBlock) return
     if (isPositionNearPath(oldBlock.position, path) && oldBlock.type !== newBlock.type) {
       resetPath('block_updated', false)
     }
@@ -355,7 +331,9 @@ function inject (bot) {
     if (stateMovements && stateMovements.allowFreeMotion && stateGoal && stateGoal.entity) {
       const target = stateGoal.entity
       if (physics.canStraightLine([target.position])) {
-        bot.lookAt(target.position.offset(0, 1.6, 0))
+        if (stateMovements.canLook) {
+          bot.lookAt(target.position.offset(0, 1.6, 0))
+        }
 
         if (target.position.distanceSquared(bot.entity.position) > stateGoal.rangeSq) {
           bot.setControlState('forward', true)
@@ -516,9 +494,7 @@ function inject (bot) {
       }
       path.shift()
       if (path.length === 0) { // done
-        // If the block the bot is standing on is not a full block only checking for the floored position can fail as
-        // the distance to the goal can get greater then 0 when the vector is floored.
-        if (!dynamicGoal && stateGoal && (stateGoal.isEnd(p.floored()) || stateGoal.isEnd(p.floored().offset(0, 1, 0)))) {
+        if (!dynamicGoal && stateGoal && stateGoal.isEnd(p.floored())) {
           bot.emit('goal_reached', stateGoal)
           stateGoal = null
         }

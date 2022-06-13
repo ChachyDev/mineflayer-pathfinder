@@ -5,7 +5,6 @@ import { Vec3 } from 'vec3';
 import { Block } from 'prismarine-block';
 import { Entity } from 'prismarine-entity';
 import { World } from 'prismarine-world'
-import AStar from './lib/astar';
 
 declare module 'mineflayer-pathfinder' {
 	export function pathfinder(bot: Bot): void;
@@ -23,19 +22,6 @@ declare module 'mineflayer-pathfinder' {
 			goal: goals.Goal,
 			timeout?: number
 		): ComputedPath;
-		getPathFromTo(
-			movements: Movements,
-			startPos: Vec3 | null, 
-			goal: goals.Goal, 
-			options?: {
-				optimizePath?: boolean,
-				timeout?: number,
-				tickTimeout?: number,
-				searchRadius?: number,
-				startMove?: Move
-			}
-		): IterableIterator<{ result: ComputedPath, astarContext: AStar }>
-
 		setGoal(goal: goals.Goal | null, dynamic?: boolean): void;
 		setMovements(movements: Movements): void;
 		goto(goal: goals.Goal, callback?: Callback): Promise<void>;
@@ -191,6 +177,7 @@ declare module 'mineflayer-pathfinder' {
 
 		public bot: Bot;
 
+		public canLook: boolean;
 		public canDig: boolean;
 		public dontCreateFlow: boolean;
 		public dontMineUnderFallingBlock: boolean;
@@ -262,20 +249,13 @@ declare module 'mineflayer-pathfinder' {
 
 	type Callback = (error?: Error) => void;
 
-	interface PathBase {
+	export interface ComputedPath {
+		status: 'noPath' | 'timeout' | 'success';
 		cost: number;
 		time: number;
 		visitedNodes: number;
 		generatedNodes: number;
 		path: Move[];
-	}
-
-	export interface ComputedPath extends PathBase {
-		status: 'noPath' | 'timeout' | 'success';
-	}
-
-	export interface PartiallyComputedPath extends PathBase {
-		status: 'noPath' | 'timeout' | 'success' | 'partial';
 	}
 
 	export interface XZCoordinates {
@@ -306,18 +286,6 @@ declare module 'mineflayer-pathfinder' {
 }
 
 declare module 'mineflayer' {
-	interface BotEvents {
-		goal_reached: (goal: Goal) => void;
-		path_update: (path: PartiallyComputedPath) => void;
-		goal_updated: (goal: Goal, dynamic: boolean) => void;
-		path_reset: (
-			reason: 'goal_updated' | 'movements_updated' |
-				'block_updated' | 'chunk_loaded' | 'goal_moved' | 'dig_error' |
-				'no_scaffolding_blocks' | 'place_error' | 'stuck'
-		) => void;
-		path_stop: () => void;
-	}
-
 	interface Bot {
 		pathfinder: Pathfinder
 	}

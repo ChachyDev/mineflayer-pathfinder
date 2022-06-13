@@ -1,19 +1,17 @@
 {
   "name": "mineflayer-pathfinder",
-  "version": "2.1.1",
+  "version": "2.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "mocha_test": "mocha --reporter spec --exit",
-    "mocha_debug": "mocha --inspect-brk --reporter spec --exit",
+    "test": "npm run lint",
     "lint": "standard",
-    "fix": "standard --fix",
-    "test": "npm run lint && npm run mocha_test"
+    "fix": "standard --fix"
   },
   "author": "Karang",
   "license": "MIT",
   "dependencies": {
-    "minecraft-data": "^3.1.1",
+    "minecraft-data": "^2.75.0",
     "prismarine-block": "^1.7.3",
     "prismarine-entity": "^2.0.0",
     "prismarine-item": "^1.5.0",
@@ -23,10 +21,7 @@
   },
   "devDependencies": {
     "mineflayer-pathfinder": "file:./",
-    "minecraft-wrap": "^1.2.1",
     "mineflayer": "^4.0.0",
-    "mocha": "^10.0.0",
-    "prismarine-schematic": "^1.2.1",
-    "standard": "^17.0.0"
+    "standard": "^16.0.3"
   }
 }
